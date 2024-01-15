@@ -1,4 +1,6 @@
 import ast
+import zlib
+import base64
 from passes import \
         RemoveDocstrings, \
         CleanImports, \
@@ -12,6 +14,15 @@ from output_real import _Unparser
 def unparse(ast_obj):
     unparser = _Unparser()
     return unparser.visit(ast_obj)
+
+
+def compress_pack(src):
+    encoded = base64.b64encode(zlib.compress(bytes(src, 'utf-8')))
+    script = [
+        'import zlib,base64',
+        f'exec(zlib.decompress(base64.b64decode({encoded})))'
+    ]
+    return ';'.join(script)
 
 
 class ThreadSnake:
@@ -61,4 +72,4 @@ class ThreadSnake:
         """
         Get a minified string representation of the program.
         """
-        return unparse(self._root.body)
+        return compress_pack(unparse(self._root.body))
