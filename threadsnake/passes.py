@@ -6,6 +6,12 @@ When merging multiple files, this can break your code.
 import ast
 
 
+def to_module(a):
+    m = ast.Module()
+    m.body = a
+    return m
+
+
 class Pass:
     def __init__(self, cfg={}):
         self._cfg = cfg
@@ -22,9 +28,10 @@ class Pass:
 
 class RemoveDocstrings(Pass):
     def apply(self, curr_ast):
-        new_ast = curr_ast.copy()
+        new_ast = curr_ast.body
         for node in new_ast:
-            if not isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
+            if not isinstance(node, (ast.FunctionDef, ast.ClassDef,
+                                     ast.AsyncFunctionDef, ast.Module)):
                 continue
 
             if not len(node.body):
@@ -38,7 +45,8 @@ class RemoveDocstrings(Pass):
 
             before = [ast.Pass()] if len(node.body) == 1 else []
             node.body = before + node.body[1:]
-        return new_ast
+
+        return to_module(new_ast)
 
 
 class CleanImports(Pass):
@@ -50,7 +58,7 @@ class CleanImports(Pass):
         imports = []
         imports_from = []
         res = []
-        for line in curr_ast:
+        for line in curr_ast.body:
             if isinstance(line, ast.Import):
                 imports.append(line)
             elif isinstance(line, ast.ImportFrom):
@@ -70,7 +78,7 @@ class CleanImports(Pass):
         # remove things that are in the global namespace already
 
         # Join everything together
-        return [ast.Import(names)] + imports_from + res
+        return to_module([ast.Import(names)] + imports_from + res)
 
 
 class RemoveImports(Pass):
@@ -99,10 +107,8 @@ class RemoveImports(Pass):
 
                 return ast.Import(new)
 
-        ap = ast.Module()
-        ap.body = curr_ast
-        ap = ImportRemover().visit(ap)
-        return ap.body
+        ap = ImportRemover().visit(curr_ast)
+        return ap
 
 
 class RenameFunctions(Pass):

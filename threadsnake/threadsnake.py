@@ -46,14 +46,19 @@ class ThreadSnake:
             self._cfg['RemoveImports']['remove'].append(module_name)
 
     def apply(self):
+        curr = ast.Module()
+        curr.body = self._root
+
         for astpass in self._passes:
             cfg = self._cfg.get(astpass.name())
             if cfg is not None:
                 astpass.update_config(cfg)
-            self._root = astpass.apply(self._root)
+            curr = astpass.apply(curr)
+
+        self._root = curr
 
     def pack(self):
         """
         Get a minified string representation of the program.
         """
-        return unparse(self._root)
+        return unparse(self._root.body)
