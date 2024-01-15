@@ -6,6 +6,7 @@ from passes import \
         RenameVariables, \
         RenameFunctions, \
         RenameClasses
+from output import OutputMinifier
 
 
 class ThreadSnake:
@@ -50,5 +51,5 @@ class ThreadSnake:
         """
         Get a minified string representation of the program.
         """
-        # print(str(self._root[0]))
-        return ast.unparse(self._root)
+        o = OutputMinifier()
+        return o.minify(self._root)
