@@ -1,9 +1,8 @@
 """
-Basic python minifier, meant for script packing.
-
-When merging multiple files, this can break your code.
+Passes we run over the AST
 """
 import ast
+import copy
 
 
 def to_module(a):
@@ -27,26 +26,28 @@ class Pass:
 
 
 class RemoveDocstrings(Pass):
+    TYPES = (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef, ast.Module)
+
     def apply(self, curr_ast):
-        new_ast = curr_ast.body
-        for node in new_ast:
-            if not isinstance(node, (ast.FunctionDef, ast.ClassDef,
-                                     ast.AsyncFunctionDef, ast.Module)):
+        new_ast = copy.deepcopy(curr_ast)
+        # https://gist.github.com/phpdude/1ae6f19de213d66286c8183e9e3b9ec1
+        for node in ast.walk(new_ast):
+            if not isinstance(node, self.TYPES):
                 continue
 
             if not len(node.body):
                 continue
 
-            if not isinstance(node.body[0], ast.Expr):
+            if not hasattr(node.body[0], 'value'):
                 continue
 
-            if not hasattr(node.body[0], 'value') or not isinstance(node.body[0].value, ast.Str):
+            if not isinstance(node.body[0].value, ast.Str):
                 continue
 
             before = [ast.Pass()] if len(node.body) == 1 else []
             node.body = before + node.body[1:]
 
-        return to_module(new_ast)
+        return new_ast
 
 
 class CleanImports(Pass):
@@ -106,6 +107,15 @@ class RemoveImports(Pass):
                     return None
 
                 return ast.Import(new)
+
+            def visit_ImportFrom(self, node):
+                for name in remove:
+                    module_name = node.module
+                    if '.' in module_name and '.' not in name:
+                        module_name = module_name.split('.')[0]
+                    if module_name == name:
+                        return None
+                return node
 
         ap = ImportRemover().visit(curr_ast)
         return ap

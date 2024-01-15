@@ -4,11 +4,11 @@ test
 # do imports
 import requests
 import struct
-import badmodule
+import test2
 
 # you'll need to maybe do some rewriting
-from badmodule import a, b, d, e
-from badmodule.b import c, v, g
+from test2 import a, b, d, e
+from test2.b import c, v, g
 
 
 @test.test2()

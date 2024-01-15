@@ -1,2 +1,3 @@
-python3 ./threadsnake/ | wc
-python3 ./threadsnake/ | python3
+#!/bin/sh
+python3 ./threadsnake/ $1| wc
+python3 ./threadsnake/ $1 | python3
