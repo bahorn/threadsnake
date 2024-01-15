@@ -12,6 +12,8 @@ This can break code, do fill an issue / pr if you can fix the case.
 * Removal of doc strings
 * Comment removal (part of the AST translation process)
 * Patched unparse() removing unnessary space.
+* Compresses the code, converts to base85 and packs in a wrapper script to
+  decompress and run.
 
 ## Todo
 

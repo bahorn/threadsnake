@@ -17,10 +17,10 @@ def unparse(ast_obj):
 
 
 def compress_pack(src):
-    encoded = base64.b64encode(zlib.compress(bytes(src, 'utf-8')))
+    encoded = base64.b85encode(zlib.compress(bytes(src, 'utf-8')))
     script = [
         'import zlib,base64',
-        f'exec(zlib.decompress(base64.b64decode({encoded})))'
+        f'exec(zlib.decompress(base64.b85decode({encoded})))'
     ]
     return ';'.join(script)
 

@@ -1806,35 +1806,3 @@ def __getattr__(name):
         )
         return value
     raise AttributeError(f"module 'ast' has no attribute '{name}'")
-
-
-def main():
-    import argparse
-
-    parser = argparse.ArgumentParser(prog='python -m ast')
-    parser.add_argument('infile', nargs='?', default='-',
-                        help='the file to parse; defaults to stdin')
-    parser.add_argument('-m', '--mode', default='exec',
-                        choices=('exec', 'single', 'eval', 'func_type'),
-                        help='specify what kind of code must be parsed')
-    parser.add_argument('--no-type-comments', default=True, action='store_false',
-                        help="don't add information about type comments")
-    parser.add_argument('-a', '--include-attributes', action='store_true',
-                        help='include attributes such as line numbers and '
-                             'column offsets')
-    parser.add_argument('-i', '--indent', type=int, default=3,
-                        help='indentation of nodes (number of spaces)')
-    args = parser.parse_args()
-
-    if args.infile == '-':
-        name = '<stdin>'
-        source = sys.stdin.buffer.read()
-    else:
-        name = args.infile
-        with open(args.infile, 'rb') as infile:
-            source = infile.read()
-    tree = parse(source, name, args.mode, type_comments=args.no_type_comments)
-    print(dump(tree, include_attributes=args.include_attributes, indent=args.indent))
-
-if __name__ == '__main__':
-    main()
