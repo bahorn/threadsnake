@@ -7,11 +7,13 @@ import struct
 import badmodule
 
 # you'll need to maybe do some rewriting
-from badmodule import a
-from badmoule.b import c
+from badmodule import a, b, d, e
+from badmodule.b import c, v, g
 
 
-def hello_world(a, b):
+@test.test2()
+@uwu.test()
+def hello_world(a, b, c=2, **kwargs):
     """
     aaa
     """

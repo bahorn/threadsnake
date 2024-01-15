@@ -8,7 +8,7 @@ from threadsnake import ThreadSnake
 
 def main():
     a = ThreadSnake()
-    with open('./tests/test2.py', 'r') as f:
+    with open('./threadsnake/output_real.py', 'r') as f:
         a.add(f.read(), 'badmodule')
     a.apply()
     print(a.pack())

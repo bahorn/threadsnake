@@ -22,7 +22,23 @@ class Pass:
 
 class RemoveDocstrings(Pass):
     def apply(self, curr_ast):
-        return curr_ast
+        new_ast = curr_ast.copy()
+        for node in new_ast:
+            if not isinstance(node, (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef)):
+                continue
+
+            if not len(node.body):
+                continue
+
+            if not isinstance(node.body[0], ast.Expr):
+                continue
+
+            if not hasattr(node.body[0], 'value') or not isinstance(node.body[0].value, ast.Str):
+                continue
+
+            before = [ast.Pass()] if len(node.body) == 1 else []
+            node.body = before + node.body[1:]
+        return new_ast
 
 
 class CleanImports(Pass):

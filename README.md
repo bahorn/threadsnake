@@ -7,4 +7,5 @@ This can break code when merging multiple files together.
 
 ## License
 
-MIT
+This used code from the Python repository, namely `Lib/ast.py`.
+This is Python License.
