@@ -1,17 +1,28 @@
 """
 Passes we run over the AST
 """
-import ast
+from ast import \
+        FunctionDef, \
+        ClassDef, \
+        AsyncFunctionDef, \
+        Module, \
+        Constant, \
+        Pass, \
+        Import, \
+        ImportFrom, \
+        NodeTransformer, \
+        walk, \
+        alias
 import copy
 
 
 def to_module(a):
-    m = ast.Module()
+    m = Module()
     m.body = a
     return m
 
 
-class Pass:
+class ASTPass:
     def __init__(self, cfg={}):
         self._cfg = cfg
 
@@ -25,13 +36,13 @@ class Pass:
         return self.__class__.__name__
 
 
-class RemoveDocstrings(Pass):
-    TYPES = (ast.FunctionDef, ast.ClassDef, ast.AsyncFunctionDef, ast.Module)
+class RemoveDocstrings(ASTPass):
+    TYPES = (FunctionDef, ClassDef, AsyncFunctionDef, Module)
 
     def apply(self, curr_ast):
         new_ast = copy.deepcopy(curr_ast)
         # https://gist.github.com/phpdude/1ae6f19de213d66286c8183e9e3b9ec1
-        for node in ast.walk(new_ast):
+        for node in walk(new_ast):
             if not isinstance(node, self.TYPES):
                 continue
 
@@ -41,16 +52,19 @@ class RemoveDocstrings(Pass):
             if not hasattr(node.body[0], 'value'):
                 continue
 
-            if not isinstance(node.body[0].value, ast.Str):
+            if not isinstance(node.body[0].value, Constant):
                 continue
 
-            before = [ast.Pass()] if len(node.body) == 1 else []
+            if not isinstance(node.body[0].value.value, str):
+                continue
+
+            before = [Pass()] if len(node.body) == 1 else []
             node.body = before + node.body[1:]
 
         return new_ast
 
 
-class CleanImports(Pass):
+class CleanImports(ASTPass):
     def apply(self, curr_ast):
         """
         Find global imports and move them all into one line, deduping
@@ -60,9 +74,9 @@ class CleanImports(Pass):
         imports_from = []
         res = []
         for line in curr_ast.body:
-            if isinstance(line, ast.Import):
+            if isinstance(line, Import):
                 imports.append(line)
-            elif isinstance(line, ast.ImportFrom):
+            elif isinstance(line, ImportFrom):
                 imports_from.append(line)
             else:
                 res.append(line)
@@ -72,17 +86,17 @@ class CleanImports(Pass):
         for import_line in imports:
             for name in import_line.names:
                 names.append(name.name)
-        names = list(map(ast.alias, set(names)))
+        names = list(map(alias, set(names)))
 
         # Cleanup ImportFrom
         # Dedup multiple things from the same module
         # remove things that are in the global namespace already
 
         # Join everything together
-        return to_module([ast.Import(names)] + imports_from + res)
+        return to_module([Import(names)] + imports_from + res)
 
 
-class RemoveImports(Pass):
+class RemoveImports(ASTPass):
     """
     Remove imports.
 
@@ -97,7 +111,7 @@ class RemoveImports(Pass):
         if remove is None:
             return curr_ast
 
-        class ImportRemover(ast.NodeTransformer):
+        class ImportRemover(NodeTransformer):
             def visit_Import(self, node):
                 new = []
                 for name in node.names:
@@ -106,7 +120,7 @@ class RemoveImports(Pass):
                 if len(new) == 0:
                     return None
 
-                return ast.Import(new)
+                return Import(new)
 
             def visit_ImportFrom(self, node):
                 for name in remove:
@@ -121,16 +135,16 @@ class RemoveImports(Pass):
         return ap
 
 
-class RenameFunctions(Pass):
+class RenameFunctions(ASTPass):
     def apply(self, curr_ast):
         return curr_ast
 
 
-class RenameVariables(Pass):
+class RenameVariables(ASTPass):
     def apply(self, curr_ast):
         return curr_ast
 
 
-class RenameClasses(Pass):
+class RenameClasses(ASTPass):
     def rename_classes(self, curr_ast):
         return curr_ast

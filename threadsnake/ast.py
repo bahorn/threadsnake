@@ -756,7 +756,7 @@ class _Unparser(NodeVisitor):
             traverser(items[0])
             self.write(",")
         else:
-            self.interleave(lambda: self.write(", "), traverser, items)
+            self.interleave(lambda: self.write(","), traverser, items)
 
     def maybe_newline(self):
         """Adds a newline if it isn't the start of generated source"""
@@ -767,7 +767,7 @@ class _Unparser(NodeVisitor):
         """Indent a piece of text and append it, according to the current
         indentation level"""
         self.maybe_newline()
-        self.write("    " * self._indent + text)
+        self.write(" " * self._indent + text)
 
     def write(self, *text):
         """Add new source parts"""
@@ -879,7 +879,7 @@ class _Unparser(NodeVisitor):
     def visit_FunctionType(self, node):
         with self.delimit("(", ")"):
             self.interleave(
-                lambda: self.write(", "), self.traverse, node.argtypes
+                lambda: self.write(","), self.traverse, node.argtypes
             )
 
         self.write(" -> ")
@@ -894,12 +894,12 @@ class _Unparser(NodeVisitor):
         with self.require_parens(_Precedence.NAMED_EXPR, node):
             self.set_precedence(_Precedence.ATOM, node.target, node.value)
             self.traverse(node.target)
-            self.write(" := ")
+            self.write(":=")
             self.traverse(node.value)
 
     def visit_Import(self, node):
         self.fill("import ")
-        self.interleave(lambda: self.write(", "), self.traverse, node.names)
+        self.interleave(lambda: self.write(","), self.traverse, node.names)
 
     def visit_ImportFrom(self, node):
         self.fill("from ")
@@ -907,14 +907,14 @@ class _Unparser(NodeVisitor):
         if node.module:
             self.write(node.module)
         self.write(" import ")
-        self.interleave(lambda: self.write(", "), self.traverse, node.names)
+        self.interleave(lambda: self.write(","), self.traverse, node.names)
 
     def visit_Assign(self, node):
         self.fill()
         for target in node.targets:
             self.set_precedence(_Precedence.TUPLE, target)
             self.traverse(target)
-            self.write(" = ")
+            self.write("=")
         self.traverse(node.value)
         if type_comment := self.get_type_comment(node):
             self.write(type_comment)
@@ -922,17 +922,17 @@ class _Unparser(NodeVisitor):
     def visit_AugAssign(self, node):
         self.fill()
         self.traverse(node.target)
-        self.write(" " + self.binop[node.op.__class__.__name__] + "= ")
+        self.write(self.binop[node.op.__class__.__name__] + "=")
         self.traverse(node.value)
 
     def visit_AnnAssign(self, node):
         self.fill()
         with self.delimit_if("(", ")", not node.simple and isinstance(node.target, Name)):
             self.traverse(node.target)
-        self.write(": ")
+        self.write(":")
         self.traverse(node.annotation)
         if node.value:
-            self.write(" = ")
+            self.write("=")
             self.traverse(node.value)
 
     def visit_Return(self, node):
@@ -952,22 +952,22 @@ class _Unparser(NodeVisitor):
 
     def visit_Delete(self, node):
         self.fill("del ")
-        self.interleave(lambda: self.write(", "), self.traverse, node.targets)
+        self.interleave(lambda: self.write(","), self.traverse, node.targets)
 
     def visit_Assert(self, node):
         self.fill("assert ")
         self.traverse(node.test)
         if node.msg:
-            self.write(", ")
+            self.write(",")
             self.traverse(node.msg)
 
     def visit_Global(self, node):
         self.fill("global ")
-        self.interleave(lambda: self.write(", "), self.write, node.names)
+        self.interleave(lambda: self.write(","), self.write, node.names)
 
     def visit_Nonlocal(self, node):
         self.fill("nonlocal ")
-        self.interleave(lambda: self.write(", "), self.write, node.names)
+        self.interleave(lambda: self.write(","), self.write, node.names)
 
     def visit_Await(self, node):
         with self.require_parens(_Precedence.AWAIT, node):
@@ -1048,7 +1048,7 @@ class _Unparser(NodeVisitor):
             self.traverse(node.body)
 
     def visit_ClassDef(self, node):
-        self.maybe_newline()
+        #self.maybe_newline()
         for deco in node.decorator_list:
             self.fill("@")
             self.traverse(deco)
@@ -1059,13 +1059,13 @@ class _Unparser(NodeVisitor):
             comma = False
             for e in node.bases:
                 if comma:
-                    self.write(", ")
+                    self.write(",")
                 else:
                     comma = True
                 self.traverse(e)
             for e in node.keywords:
                 if comma:
-                    self.write(", ")
+                    self.write(",")
                 else:
                     comma = True
                 self.traverse(e)
@@ -1080,7 +1080,7 @@ class _Unparser(NodeVisitor):
         self._function_helper(node, "async def")
 
     def _function_helper(self, node, fill_suffix):
-        self.maybe_newline()
+        #self.maybe_newline()
         for deco in node.decorator_list:
             self.fill("@")
             self.traverse(deco)
@@ -1091,7 +1091,7 @@ class _Unparser(NodeVisitor):
         with self.delimit("(", ")"):
             self.traverse(node.args)
         if node.returns:
-            self.write(" -> ")
+            self.write("->")
             self.traverse(node.returns)
         with self.block(extra=self.get_type_comment(node)):
             self._write_docstring_and_traverse_body(node)
@@ -1099,12 +1099,12 @@ class _Unparser(NodeVisitor):
     def _type_params_helper(self, type_params):
         if type_params is not None and len(type_params) > 0:
             with self.delimit("[", "]"):
-                self.interleave(lambda: self.write(", "), self.traverse, type_params)
+                self.interleave(lambda: self.write(","), self.traverse, type_params)
 
     def visit_TypeVar(self, node):
         self.write(node.name)
         if node.bound:
-            self.write(": ")
+            self.write(":")
             self.traverse(node.bound)
 
     def visit_TypeVarTuple(self, node):
@@ -1117,7 +1117,7 @@ class _Unparser(NodeVisitor):
         self.fill("type ")
         self.traverse(node.name)
         self._type_params_helper(node.type_params)
-        self.write(" = ")
+        self.write("=")
         self.traverse(node.value)
 
     def visit_For(self, node):
@@ -1169,13 +1169,13 @@ class _Unparser(NodeVisitor):
 
     def visit_With(self, node):
         self.fill("with ")
-        self.interleave(lambda: self.write(", "), self.traverse, node.items)
+        self.interleave(lambda: self.write(","), self.traverse, node.items)
         with self.block(extra=self.get_type_comment(node)):
             self.traverse(node.body)
 
     def visit_AsyncWith(self, node):
         self.fill("async with ")
-        self.interleave(lambda: self.write(", "), self.traverse, node.items)
+        self.interleave(lambda: self.write(","), self.traverse, node.items)
         with self.block(extra=self.get_type_comment(node)):
             self.traverse(node.body)
 
@@ -1343,7 +1343,7 @@ class _Unparser(NodeVisitor):
 
     def visit_List(self, node):
         with self.delimit("[", "]"):
-            self.interleave(lambda: self.write(", "), self.traverse, node.elts)
+            self.interleave(lambda: self.write(","), self.traverse, node.elts)
 
     def visit_ListComp(self, node):
         with self.delimit("[", "]"):
@@ -1366,7 +1366,7 @@ class _Unparser(NodeVisitor):
     def visit_DictComp(self, node):
         with self.delimit("{", "}"):
             self.traverse(node.key)
-            self.write(": ")
+            self.write(":")
             self.traverse(node.value)
             for gen in node.generators:
                 self.traverse(gen)
@@ -1398,7 +1398,7 @@ class _Unparser(NodeVisitor):
     def visit_Set(self, node):
         if node.elts:
             with self.delimit("{", "}"):
-                self.interleave(lambda: self.write(", "), self.traverse, node.elts)
+                self.interleave(lambda: self.write(","), self.traverse, node.elts)
         else:
             # `{}` would be interpreted as a dictionary literal, and
             # `set` might be shadowed. Thus:
@@ -1407,7 +1407,7 @@ class _Unparser(NodeVisitor):
     def visit_Dict(self, node):
         def write_key_value_pair(k, v):
             self.traverse(k)
-            self.write(": ")
+            self.write(":")
             self.traverse(v)
 
         def write_item(item):
@@ -1423,7 +1423,7 @@ class _Unparser(NodeVisitor):
 
         with self.delimit("{", "}"):
             self.interleave(
-                lambda: self.write(", "), write_item, zip(node.keys, node.values)
+                lambda: self.write(","), write_item, zip(node.keys, node.values)
             )
 
     def visit_Tuple(self, node):
@@ -1560,13 +1560,13 @@ class _Unparser(NodeVisitor):
             comma = False
             for e in node.args:
                 if comma:
-                    self.write(", ")
+                    self.write(",")
                 else:
                     comma = True
                 self.traverse(e)
             for e in node.keywords:
                 if comma:
-                    self.write(", ")
+                    self.write(",")
                 else:
                     comma = True
                 self.traverse(e)
@@ -1615,7 +1615,7 @@ class _Unparser(NodeVisitor):
     def visit_arg(self, node):
         self.write(node.arg)
         if node.annotation:
-            self.write(": ")
+            self.write(":")
             self.traverse(node.annotation)
 
     def visit_arguments(self, node):
@@ -1628,31 +1628,31 @@ class _Unparser(NodeVisitor):
             if first:
                 first = False
             else:
-                self.write(", ")
+                self.write(",")
             self.traverse(a)
             if d:
                 self.write("=")
                 self.traverse(d)
             if index == len(node.posonlyargs):
-                self.write(", /")
+                self.write(",/")
 
         # varargs, or bare '*' if no varargs but keyword-only arguments present
         if node.vararg or node.kwonlyargs:
             if first:
                 first = False
             else:
-                self.write(", ")
+                self.write(",")
             self.write("*")
             if node.vararg:
                 self.write(node.vararg.arg)
                 if node.vararg.annotation:
-                    self.write(": ")
+                    self.write(":")
                     self.traverse(node.vararg.annotation)
 
         # keyword-only arguments
         if node.kwonlyargs:
             for a, d in zip(node.kwonlyargs, node.kw_defaults):
-                self.write(", ")
+                self.write(",")
                 self.traverse(a)
                 if d:
                     self.write("=")
@@ -1663,10 +1663,10 @@ class _Unparser(NodeVisitor):
             if first:
                 first = False
             else:
-                self.write(", ")
+                self.write(",")
             self.write("**" + node.kwarg.arg)
             if node.kwarg.annotation:
-                self.write(": ")
+                self.write(":")
                 self.traverse(node.kwarg.annotation)
 
     def visit_keyword(self, node):
@@ -1684,7 +1684,7 @@ class _Unparser(NodeVisitor):
                 self.traverse(node.args)
             if buffer:
                 self.write(" ", *buffer)
-            self.write(": ")
+            self.write(":")
             self.set_precedence(_Precedence.TEST, node.body)
             self.traverse(node.body)
 
@@ -1717,7 +1717,7 @@ class _Unparser(NodeVisitor):
     def visit_MatchSequence(self, node):
         with self.delimit("[", "]"):
             self.interleave(
-                lambda: self.write(", "), self.traverse, node.patterns
+                lambda: self.write(","), self.traverse, node.patterns
             )
 
     def visit_MatchStar(self, node):
@@ -1730,20 +1730,20 @@ class _Unparser(NodeVisitor):
         def write_key_pattern_pair(pair):
             k, p = pair
             self.traverse(k)
-            self.write(": ")
+            self.write(":")
             self.traverse(p)
 
         with self.delimit("{", "}"):
             keys = node.keys
             self.interleave(
-                lambda: self.write(", "),
+                lambda: self.write(","),
                 write_key_pattern_pair,
                 zip(keys, node.patterns, strict=True),
             )
             rest = node.rest
             if rest is not None:
                 if keys:
-                    self.write(", ")
+                    self.write(",")
                 self.write(f"**{rest}")
 
     def visit_MatchClass(self, node):
@@ -1752,7 +1752,7 @@ class _Unparser(NodeVisitor):
         with self.delimit("(", ")"):
             patterns = node.patterns
             self.interleave(
-                lambda: self.write(", "), self.traverse, patterns
+                lambda: self.write(","), self.traverse, patterns
             )
             attrs = node.kwd_attrs
             if attrs:
@@ -1762,9 +1762,9 @@ class _Unparser(NodeVisitor):
                     self.traverse(pattern)
 
                 if patterns:
-                    self.write(", ")
+                    self.write(",")
                 self.interleave(
-                    lambda: self.write(", "),
+                    lambda: self.write(","),
                     write_attr_pattern,
                     zip(attrs, node.kwd_patterns, strict=True),
                 )
@@ -1785,17 +1785,18 @@ class _Unparser(NodeVisitor):
     def visit_MatchOr(self, node):
         with self.require_parens(_Precedence.BOR, node):
             self.set_precedence(_Precedence.BOR.next(), *node.patterns)
-            self.interleave(lambda: self.write(" | "), self.traverse, node.patterns)
+            self.interleave(lambda: self.write("|"), self.traverse, node.patterns)
 
 def unparse(ast_obj):
     unparser = _Unparser()
     return unparser.visit(ast_obj)
 
 
-_deprecated_globals = {
-    name: globals().pop(name)
-    for name in ('Num', 'Str', 'Bytes', 'NameConstant', 'Ellipsis')
-}
+_deprecated_globals = {}
+# this breaks things
+#    name: globals().pop(name)
+#    for name in ('Num', 'Str', 'Bytes', 'NameConstant', 'Ellipsis')
+#}
 
 def __getattr__(name):
     if name in _deprecated_globals:

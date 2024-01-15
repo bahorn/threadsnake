@@ -30,5 +30,7 @@ class HelloWorld:
         ddd
         """
 
+def uwu():
+    1
 
 import requests

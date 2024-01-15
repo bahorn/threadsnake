@@ -1,4 +1,4 @@
-import ast
+from ast import parse, _Unparser, Module
 import zlib
 import base64
 from passes import \
@@ -8,10 +8,9 @@ from passes import \
         RenameVariables, \
         RenameFunctions, \
         RenameClasses
-from output_real import _Unparser
 
 
-def unparse(ast_obj):
+def ts_unparse(ast_obj):
     unparser = _Unparser()
     return unparser.visit(ast_obj)
 
@@ -33,9 +32,11 @@ class ThreadSnake:
     """
 
     def __init__(self):
-        self._root = ast.parse('').body
-        self._passes = [
+        self._root = parse('').body
+        self._perfile_passes = [
             RemoveDocstrings(),
+        ]
+        self._passes = [
             CleanImports(),
             RemoveImports(),
             RenameVariables(),
@@ -52,12 +53,20 @@ class ThreadSnake:
         """
         Add code to the AST
         """
-        self._root += ast.parse(code).body
+        curr = parse(code)
+        for astpass in self._perfile_passes:
+            cfg = self._cfg.get(astpass.name())
+            if cfg is not None:
+                astpass.update_config(cfg)
+            curr = astpass.apply(curr)
+
+        self._root += curr.body
+
         if module_name is not None:
             self._cfg['RemoveImports']['remove'].append(module_name)
 
     def apply(self):
-        curr = ast.Module()
+        curr = Module()
         curr.body = self._root
 
         for astpass in self._passes:
@@ -72,4 +81,5 @@ class ThreadSnake:
         """
         Get a minified string representation of the program.
         """
-        return compress_pack(unparse(self._root.body))
+        return ts_unparse(self._root.body)
+        #return compress_pack(unparse(self._root.body))
