@@ -81,5 +81,4 @@ class ThreadSnake:
         """
         Get a minified string representation of the program.
         """
-        return ts_unparse(self._root.body)
-        #return compress_pack(unparse(self._root.body))
+        return compress_pack(ts_unparse(self._root.body))
