@@ -31,7 +31,7 @@ class ThreadSnake:
     This will apply the chosen minifiers over the ast.
     """
 
-    def __init__(self):
+    def __init__(self, no_compress=True):
         self._root = parse('').body
         self._perfile_passes = [
             RemoveDocstrings(),
@@ -48,6 +48,7 @@ class ThreadSnake:
                 'remove': ['']
             }
         }
+        self._no_compress = no_compress
 
     def add(self, code, module_name=None):
         """
@@ -81,4 +82,7 @@ class ThreadSnake:
         """
         Get a minified string representation of the program.
         """
-        return compress_pack(ts_unparse(self._root.body))
+        file = ts_unparse(self._root.body)
+        if self._no_compress:
+            return file
+        return compress_pack(file)

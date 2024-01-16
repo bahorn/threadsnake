@@ -3,14 +3,19 @@ Basic python minifier, meant for script packing.
 
 When merging multiple files, this can break your code.
 """
-import sys
+import argparse
 import os
 from threadsnake import ThreadSnake
 
 
 def main():
     a = ThreadSnake()
-    for file in sys.argv[1:]:
+    parser = argparse.ArgumentParser(description='Minify Python Scripts')
+    parser.add_argument('--no-compress', action='store_true')
+    parser.add_argument('files', nargs='+')
+    args = parser.parse_args()
+    a = ThreadSnake(no_compress=args.no_compress)
+    for file in args.files:
         module_name = os.path.basename(file).split('.')[0]
         with open(file, 'r') as f:
             a.add(f.read(), module_name)
