@@ -14,7 +14,7 @@ from ast import \
         NodeVisitor, \
         Name, \
         Call, \
-        Assign, \
+        Expr, \
         walk, \
         alias, \
         unparse
@@ -58,10 +58,7 @@ class RemoveDocstrings(ASTPass):
             if not hasattr(node.body[0], 'value'):
                 continue
 
-            if isinstance(node.body[0], Assign):
-                continue
-
-            if not isinstance(node.body[0], Constant):
+            if not isinstance(node.body[0], Expr):
                 continue
 
             if not isinstance(node.body[0].value.value, str):

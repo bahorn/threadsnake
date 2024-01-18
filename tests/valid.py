@@ -1,3 +1,6 @@
+"""
+ignore me
+"""
 import sys
 import os
 MAGIC_CONST = 1000
@@ -23,6 +26,9 @@ class Test(Pointless):
 
 
 def main():
+    """
+    blah
+    """
     cool = Test(MAGIC_CONST)
     print(os.system('cat /etc/hosts'))
     print(f'{cool.fun()}')
