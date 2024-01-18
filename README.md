@@ -1,23 +1,29 @@
 # threadsnake
 
-A basic python script minifier.
-ThreadSnakes are a small family of snakes.
+A Python script minifier, named after Thread Snakes which are small
+family of snakes.
 
-This can break code, do fill an issue / pr if you can fix the case.
+Bit experimental, and can break code.
+If you can fix some cases, do fill an issue / pr if you can fix it.
 
 ## Usage
 
 ```
-python3 threadsnake [files....]
+python3 threadsnake [options] file [filess....]
 ```
 
+There are the following output options:
+* `--no-compress` - Don't run compression on the code
+* `--no-rename` - Disables variable renaming, which can break code in some
+  cases.
+
 No external dependencies, just pure python3. Might need a more modern verison,
-wrote with 3.11.
+as this was developed using 3.11.
 
 To avoid breakage:
 * Remember, this merges files in one global namespace. Don't reuse global
   variable names across files, unless you intend for that.
-* As variables get renamed, you use of `eval()/exec()` can break.
+* As variables get renamed, your use of `eval()/exec()` can break.
 * Import across files in the form "from OTHERFILE import dep1, dep2, ...".
   `import x` gets removed if its a known other module, so to allow your code to
   be ran without being minified, do this pattern.
