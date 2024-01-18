@@ -11,9 +11,14 @@ from ast import \
         Import, \
         ImportFrom, \
         NodeTransformer, \
+        NodeVisitor, \
+        Name, \
+        Call, \
         walk, \
-        alias
+        alias, \
+        unparse
 import copy
+from remapnames import map_symbols_to_new_names
 
 
 def to_module(a):
@@ -96,6 +101,31 @@ class CleanImports(ASTPass):
         return to_module([Import(names)] + imports_from + res)
 
 
+class ImportRemover(NodeTransformer):
+    def __init__(self, remove):
+        self._remove = remove
+        super().__init__()
+
+    def visit_Import(self, node):
+        new = []
+        for name in node.names:
+            if name.name not in self._remove:
+                new.append(name)
+        if len(new) == 0:
+            return None
+
+        return Import(new)
+
+    def visit_ImportFrom(self, node):
+        for name in self._remove:
+            module_name = node.module
+            if '.' in module_name and '.' not in name:
+                module_name = module_name.split('.')[0]
+            if module_name == name:
+                return None
+        return node
+
+
 class RemoveImports(ASTPass):
     """
     Remove imports.
@@ -111,40 +141,200 @@ class RemoveImports(ASTPass):
         if remove is None:
             return curr_ast
 
-        class ImportRemover(NodeTransformer):
-            def visit_Import(self, node):
-                new = []
-                for name in node.names:
-                    if name.name not in remove:
-                        new.append(name)
-                if len(new) == 0:
-                    return None
-
-                return Import(new)
-
-            def visit_ImportFrom(self, node):
-                for name in remove:
-                    module_name = node.module
-                    if '.' in module_name and '.' not in name:
-                        module_name = module_name.split('.')[0]
-                    if module_name == name:
-                        return None
-                return node
-
-        ap = ImportRemover().visit(curr_ast)
+        ap = ImportRemover(remove).visit(curr_ast)
         return ap
 
 
-class RenameFunctions(ASTPass):
-    def apply(self, curr_ast):
-        return curr_ast
+def add_to_dict(d, v):
+    if v not in d:
+        d[v] = 0
+    d[v] += 1
+
+
+class FindImportedSymbols(NodeVisitor):
+    def __init__(self):
+        self._symbols = []
+
+    def symbols(self):
+        return self._symbols
+
+    def visit_Import(self, node):
+        self._symbols += [name.name for name in node.names]
+        self.generic_visit(node)
+
+    def visit_ImportFrom(self, node):
+        self._symbols += [name.name for name in node.names]
+        self.generic_visit(node)
+
+
+class FindSymbols(NodeVisitor):
+    """
+    Search the AST for symbols
+    Might double visit in a few cases.
+    """
+
+    def __init__(self):
+        self._counts = {}
+        super().__init__()
+
+    def counts(self):
+        return self._counts
+
+    def generic_visit(self, node):
+        """
+        try:
+            print(node, unparse(node))
+        except:
+            print('>')
+            pass
+        """
+        NodeVisitor.generic_visit(self, node)
+
+    def visit_Assign(self, node):
+        for target in node.targets:
+            if not isinstance(target, Name):
+                continue
+            add_to_dict(self._counts, target.id)
+        self.generic_visit(node)
+
+    def visit_Name(self, node):
+        add_to_dict(self._counts, node.id)
+        self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        add_to_dict(self._counts, node.attr)
+        self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):
+        add_to_dict(self._counts, node.name)
+        for arg in node.args.args:
+            add_to_dict(self._counts, arg.arg)
+        for arg in node.args.kwonlyargs:
+            add_to_dict(self._counts, arg.arg)
+        if node.args.kwarg:
+            add_to_dict(self._counts, node.args.kwarg.arg)
+        self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node):
+        self.visit_FunctionDef(node)
+
+    def visit_ClassDef(self, node):
+        add_to_dict(self._counts, node.name)
+        self.generic_visit(node)
+
+    def visit_Lambda(self, node):
+        for arg in node.args.args:
+            add_to_dict(self._counts, arg.arg)
+        self.generic_visit(node)
+
+    def visit_Global(self, node):
+        self.visit_Nonlocal(node)
+
+    def visit_Nonlocal(self, node):
+        for name in node.names:
+            add_to_dict(self._counts, name)
+        self.generic_visit(node)
+
+
+class UpdateSymbols(NodeTransformer):
+    def __init__(self, new_syms, modules):
+        self._new_syms = new_syms
+        self._modules = modules
+        super().__init__()
+
+    def visit_Name(self, node):
+        new_syms = self._new_syms
+        if node.id in new_syms:
+            node.id = new_syms[node.id]
+        return self.generic_visit(node)
+
+    def visit_Attribute(self, node):
+        new_syms = self._new_syms
+        if node.attr in new_syms:
+            node.attr = new_syms[node.attr]
+        return self.generic_visit(node)
+
+    def visit_FunctionDef(self, node):
+        new_syms = self._new_syms
+        if node.name in new_syms:
+            node.name = new_syms[node.name]
+        for arg in node.args.args:
+            arg.arg = new_syms[arg.arg]
+        for arg in node.args.kwonlyargs:
+            arg.arg = new_syms[arg.arg]
+        if node.args.kwarg:
+            node.args.kwarg.arg = new_syms[node.args.kwarg.arg]
+        return self.generic_visit(node)
+
+    def visit_AsyncFunctionDef(self, node):
+        return self.visit_FunctionDef(node)
+
+    def visit_ClassDef(self, node):
+        new_syms = self._new_syms
+        if node.name in new_syms:
+            node.name = new_syms[node.name]
+        return self.generic_visit(node)
+
+    def visit_Lambda(self, node):
+        new_syms = self._new_syms
+        for arg in node.args.args:
+            arg.arg = new_syms[arg.arg]
+        return self.generic_visit(node)
+
+    def visit_Global(self, node):
+        return self.visit_Nonlocal(node)
+
+    def visit_Nonlocal(self, node):
+        new_syms = self._new_syms
+        for idx, name in enumerate(node.names):
+            node.names[idx] = new_syms[name]
+        return self.generic_visit(node)
+
+    def visit_Call(self, node):
+        # bit of a hack to make this easy
+        is_banned = False
+        for name in unparse(node.func).split('.'):
+            if name in self._modules:
+                is_banned = True
+
+        func = node.func
+        if not is_banned:
+            return self.generic_visit(node)
+
+        new_args = list(map(self.visit, node.args))
+        new_keywords = list(map(self.visit, node.keywords))
+
+        return Call(
+            func=func,
+            args=new_args,
+            keywords=new_keywords
+        )
 
 
 class RenameVariables(ASTPass):
     def apply(self, curr_ast):
-        return curr_ast
+        # need external symbols to be kept the same.
+        banned = self._cfg.get('banned', [])
+        fis = FindImportedSymbols()
+        fis.visit(curr_ast)
+        modules = fis.symbols()
+        banned += modules
 
+        fs = FindSymbols()
+        fs.visit(curr_ast)
+        new_syms = fs.counts()
 
-class RenameClasses(ASTPass):
-    def rename_classes(self, curr_ast):
-        return curr_ast
+        for sym in new_syms.keys():
+            if sym[:2] == '__' and sym[-2:] == '__':
+                banned.append(sym)
+
+        for ban in banned:
+            if ban in new_syms:
+                del new_syms[ban]
+
+        new_syms = map_symbols_to_new_names(new_syms)
+
+        # Apply the modifications to normal uses
+        new_ast = UpdateSymbols(new_syms, modules).visit(curr_ast)
+        # Update class names
+        return new_ast

@@ -1,13 +1,12 @@
 from ast import parse, _Unparser, Module
 import zlib
 import base64
+import builtins
 from passes import \
         RemoveDocstrings, \
         CleanImports, \
         RemoveImports, \
-        RenameVariables, \
-        RenameFunctions, \
-        RenameClasses
+        RenameVariables
 
 
 def ts_unparse(ast_obj):
@@ -39,13 +38,15 @@ class ThreadSnake:
         self._passes = [
             CleanImports(),
             RemoveImports(),
-            RenameVariables(),
-            RenameFunctions(),
-            RenameClasses()
+            RenameVariables()
         ]
         self._cfg = {
             'RemoveImports': {
                 'remove': ['']
+            },
+            'RenameVariables': {
+                'banned': list(globals().keys()) + \
+                    list(builtins.__dict__.keys())
             }
         }
         self._no_compress = no_compress
