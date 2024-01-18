@@ -14,6 +14,7 @@ from ast import \
         NodeVisitor, \
         Name, \
         Call, \
+        Assign, \
         walk, \
         alias, \
         unparse
@@ -57,7 +58,10 @@ class RemoveDocstrings(ASTPass):
             if not hasattr(node.body[0], 'value'):
                 continue
 
-            if not isinstance(node.body[0].value, Constant):
+            if isinstance(node.body[0], Assign):
+                continue
+
+            if not isinstance(node.body[0], Constant):
                 continue
 
             if not isinstance(node.body[0].value.value, str):
@@ -250,6 +254,10 @@ class UpdateSymbols(NodeTransformer):
 
     def visit_Attribute(self, node):
         new_syms = self._new_syms
+        for name in unparse(node).split('.'):
+            if name in self._modules:
+                return node
+
         if node.attr in new_syms:
             node.attr = new_syms[node.attr]
         return self.generic_visit(node)
@@ -289,26 +297,6 @@ class UpdateSymbols(NodeTransformer):
         for idx, name in enumerate(node.names):
             node.names[idx] = new_syms[name]
         return self.generic_visit(node)
-
-    def visit_Call(self, node):
-        # bit of a hack to make this easy
-        is_banned = False
-        for name in unparse(node.func).split('.'):
-            if name in self._modules:
-                is_banned = True
-
-        func = node.func
-        if not is_banned:
-            return self.generic_visit(node)
-
-        new_args = list(map(self.visit, node.args))
-        new_keywords = list(map(self.visit, node.keywords))
-
-        return Call(
-            func=func,
-            args=new_args,
-            keywords=new_keywords
-        )
 
 
 class RenameVariables(ASTPass):

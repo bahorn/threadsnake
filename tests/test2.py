@@ -70,14 +70,10 @@ def iterator(self):
         start += 3
 
 
-
 hahaha = lambda magic: magic + 1
-
 import requests
 requests.get('https://example.com', hahaha)
-
 aaaawu.uwu.uwu()
-
 
 BLAH = 3
 
