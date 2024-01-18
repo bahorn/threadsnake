@@ -40,5 +40,10 @@ To avoid breakage:
 
 ## License
 
-This uses code from the Python repository, namely `Lib/ast.py`.
-This is Python License.
+My code is MIT licensed, which is everything beyond exceptions listed below:
+
+`threadsnake/ast.py` is derivied from `Lib/ast.py` from the Python source
+repository.
+Header says its Python license, but modern python should be under the PSF
+license.
+https://docs.python.org/3/license.html
