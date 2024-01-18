@@ -13,7 +13,6 @@ from ast import \
         NodeTransformer, \
         NodeVisitor, \
         Name, \
-        Call, \
         Expr, \
         walk, \
         alias, \
