@@ -36,16 +36,19 @@ class ThreadSnake:
     This will apply the chosen minifiers over the ast.
     """
 
-    def __init__(self, no_compress=True):
+    def __init__(self, no_compress=False, no_rename=False):
         self._root = parse('').body
         self._perfile_passes = [
             RemoveDocstrings(),
         ]
         self._passes = [
             CleanImports(),
-            RemoveImports(),
-            RenameVariables()
+            RemoveImports()
         ]
+
+        if not no_rename:
+            self._passes.append(RenameVariables())
+
         self._cfg = {
             'RemoveImports': {
                 'remove': ['']
