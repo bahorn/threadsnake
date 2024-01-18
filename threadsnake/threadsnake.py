@@ -15,8 +15,13 @@ def ts_unparse(ast_obj):
 
 
 def compress_pack(src):
-    encoded = base64.b85encode(zlib.compress(bytes(src,
-                                                   'utf-8'))).decode('ascii')
+    """
+    Generate a compressed and executable script from the source code string
+    """
+    encoded = bytes(src, 'utf-8')
+    encoded = zlib.compress(encoded)
+    encoded = base64.b85encode(encoded)
+    encoded = encoded.decode('ascii')
     script = [
         'import zlib,base64',
         f'exec(zlib.decompress(base64.b85decode("{encoded}")))'
@@ -52,31 +57,36 @@ class ThreadSnake:
         }
         self._no_compress = no_compress
 
+    def apply_passes(self, code, passes):
+        """
+        Apply a loop of passess over the code.
+        """
+        curr = code
+        for astpass in passes:
+            cfg = self._cfg.get(astpass.name())
+            if cfg is not None:
+                astpass.update_config(cfg)
+            curr = astpass.apply(curr)
+        return curr
+
     def add(self, code, module_name=None):
         """
         Add code to the AST
         """
         curr = parse(code)
-        for astpass in self._perfile_passes:
-            cfg = self._cfg.get(astpass.name())
-            if cfg is not None:
-                astpass.update_config(cfg)
-            curr = astpass.apply(curr)
-
+        curr = self.apply_passes(curr, self._perfile_passes)
         self._root += curr.body
 
         if module_name is not None:
             self._cfg['RemoveImports']['remove'].append(module_name)
 
     def apply(self):
+        """
+        Run the code over the collective AST
+        """
         curr = Module()
         curr.body = self._root
-
-        for astpass in self._passes:
-            cfg = self._cfg.get(astpass.name())
-            if cfg is not None:
-                astpass.update_config(cfg)
-            curr = astpass.apply(curr)
+        curr = self.apply_passes(curr, self._passes)
 
         self._root = curr
 

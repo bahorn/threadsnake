@@ -149,12 +149,19 @@ class RemoveImports(ASTPass):
 
 
 def add_to_dict(d, v):
+    """
+    Dict counter.
+    """
     if v not in d:
         d[v] = 0
     d[v] += 1
 
 
 class FindImportedSymbols(NodeVisitor):
+    """
+    Finds import statements and records the modules used.
+    """
+
     def __init__(self):
         self._symbols = []
 
@@ -240,6 +247,10 @@ class FindSymbols(NodeVisitor):
 
 
 class UpdateSymbols(NodeTransformer):
+    """
+    Searches the AST for symbols we need to update.
+    """
+
     def __init__(self, new_syms, modules):
         self._new_syms = new_syms
         self._modules = modules
