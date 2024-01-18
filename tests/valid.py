@@ -10,6 +10,10 @@ class Pointless:
     access_this = 'bbbbbb'
 
 
+class Uh:
+    b = int('1337')
+
+
 class Test(Pointless):
     """
     doc string

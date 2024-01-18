@@ -61,6 +61,9 @@ class RemoveDocstrings(ASTPass):
             if not isinstance(node.body[0], Expr):
                 continue
 
+            if not isinstance(node.body[0].value, Constant):
+                continue
+
             if not isinstance(node.body[0].value.value, str):
                 continue
 
