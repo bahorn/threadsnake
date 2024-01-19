@@ -66,7 +66,10 @@ class RemoveDocstrings(ASTPass):
             if not isinstance(node.body[0].value.value, str):
                 continue
 
-            before = [Pass()] if len(node.body) == 1 else []
+            before = []
+
+            if not isinstance(node, Module):
+                before += [Pass()] if len(node.body) == 1 else []
             node.body = before + node.body[1:]
 
         return new_ast
