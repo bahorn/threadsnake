@@ -28,7 +28,7 @@ import sys
 import re
 from _ast import *
 from contextlib import contextmanager, nullcontext
-from enum import IntEnum, auto, _simple_enum
+from enum import IntEnum, auto
 
 
 def parse(source, filename='<unknown>', mode='exec', *,
@@ -687,8 +687,8 @@ class Param(expr_context):
 # We unparse those infinities to INFSTR.
 _INFSTR = "1e" + repr(sys.float_info.max_10_exp + 1)
 
-@_simple_enum(IntEnum)
-class _Precedence:
+#@_simple_enum(IntEnum)
+class _Precedence(IntEnum):
     """Precedence table that originated from python grammar."""
 
     NAMED_EXPR = auto()      # <target> := <expr1>
