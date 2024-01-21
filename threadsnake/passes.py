@@ -18,7 +18,7 @@ from ast import \
         alias, \
         unparse
 import copy
-from remapnames import map_symbols_to_new_names
+from remapnames import SymbolMapper
 
 
 def to_module(a):
@@ -314,11 +314,13 @@ class UpdateSymbols(NodeTransformer):
 
 class RenameVariables(ASTPass):
     def apply(self, curr_ast):
+        sm = SymbolMapper()
         # need external symbols to be kept the same.
         banned = self._cfg.get('banned', [])
         fis = FindImportedSymbols()
         fis.visit(curr_ast)
         modules = fis.symbols()
+        sm.add_to_keywords(fis.symbols())
         banned += modules
 
         fs = FindSymbols()
@@ -333,7 +335,7 @@ class RenameVariables(ASTPass):
             if ban in new_syms:
                 del new_syms[ban]
 
-        new_syms = map_symbols_to_new_names(new_syms)
+        new_syms = sm.map_symbols(new_syms)
 
         # Apply the modifications to normal uses
         new_ast = UpdateSymbols(new_syms, modules).visit(curr_ast)
