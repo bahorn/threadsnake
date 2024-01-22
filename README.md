@@ -4,12 +4,12 @@ A Python script minifier, named after Thread Snakes which are small
 family of snakes.
 
 Bit experimental, and can break code.
-If you can fix some cases, do fill an issue / pr if you can fix it.
+If you can fix some cases, do file an issue / pr if you can fix it.
 
 ## Usage
 
 ```
-python3 threadsnake [options] file [filess....]
+python3 threadsnake [options] file [files....]
 ```
 
 There are the following output options:
