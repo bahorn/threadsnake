@@ -27,6 +27,8 @@ To avoid breakage:
 * Import across files in the form "from OTHERFILE import dep1, dep2, ...".
   `import x` gets removed if its a known other module, so to allow your code to
   be ran without being minified, do this pattern.
+* Renaming will cause issues when you pass an instance of a class from another
+  file to a function.
 
 ## Minifications
 
