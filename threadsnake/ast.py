@@ -26,7 +26,8 @@
 """
 import sys
 import re
-from _ast import *
+from _ast import \
+    AST, Constant, Tuple, expr_context, mod, Module, FunctionDef, ClassDef, AsyncFunctionDef, Pass, Import, ImportFrom, Name, Expr, alias, PyCF_ONLY_AST, If, JoinedStr, FormattedValue
 from contextlib import contextmanager, nullcontext
 from enum import IntEnum, auto
 

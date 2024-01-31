@@ -45,6 +45,8 @@ To avoid breakage:
 
 * Better modifications in unparse() - merging statements into one line.
 * Better namespacing, to break code in less cases.
+* Dead code elimination
+* Give local variables in different scopes the same name (making renaming better)
 
 ## License
 

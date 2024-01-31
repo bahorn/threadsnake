@@ -13,7 +13,7 @@ def get_product(alphabet):
 
 
 # Need to do this to generate valid code.
-keywords = [
+kwords = [
     "False",
     "await",
     "else",
@@ -56,7 +56,7 @@ keywords = [
 
 class SymbolMapper:
     def __init__(self):
-        self._keywords = keywords.copy()
+        self._keywords = kwords.copy()
 
     def add_to_keywords(self, name):
         if isinstance(name, list):
