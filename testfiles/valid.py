@@ -28,6 +28,11 @@ class Test(Pointless):
     def get(self):
         return self.access_this
 
+    def coolfun(self, x):
+        x.append(x[0])
+        x.append(self.fun())
+        return x
+
 
 def main():
     """
@@ -40,6 +45,7 @@ def main():
     print(sys.path[0].split('/')[-1])
     print(int('1337'))
     print(cool.get())
+    print(cool.coolfun([1, 2, 3]))
 
 
 if __name__ == "__main__":

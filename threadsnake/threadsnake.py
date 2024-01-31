@@ -1,4 +1,4 @@
-from ast import parse, _Unparser, Module
+from ast import parse, unparse
 import zlib
 import base64
 import builtins
@@ -6,12 +6,19 @@ from passes import \
         RemoveDocstrings, \
         CleanImports, \
         RemoveImports, \
-        RenameVariables
+        RenameVariables, \
+        InsertHelpers
 
 
-def ts_unparse(ast_obj):
-    unparser = _Unparser()
-    return unparser.visit(ast_obj)
+DEFAULT_GLOBALS = [
+    '__name__',
+    '__doc__',
+    '__package__',
+    '__loader__',
+    '__spec__',
+    '__annotations__',
+    '__builtins__'
+]
 
 
 def compress_pack(src):
@@ -36,8 +43,12 @@ class ThreadSnake:
     This will apply the chosen minifiers over the ast.
     """
 
-    def __init__(self, no_compress=False, no_rename=False):
-        self._root = parse('').body
+    def __init__(self, no_compress=False, no_rename=False, regex=None):
+        self._root = parse('')
+        self._initial_passes = [
+            InsertHelpers()
+        ]
+
         self._perfile_passes = [
             RemoveDocstrings(),
         ]
@@ -49,16 +60,30 @@ class ThreadSnake:
         if not no_rename:
             self._passes.append(RenameVariables())
 
+        # filter this to remove our imports from always being banned.
+        banned_str = DEFAULT_GLOBALS + list(builtins.__dict__.keys())
+        # Need to add more of these
+        # banned_str += dir(set)
+        # banned_str += dir(dict)
+        # banned_str += dir(list)
+        # banned_str += dir(bool)
+        # banned_str += dir(int)
+        # banned_str += dir(float)
+        banned_regex = [] if regex is None else regex
+
         self._cfg = {
             'RemoveImports': {
                 'remove': ['']
             },
             'RenameVariables': {
-                'banned':
-                    list(globals().keys()) + list(builtins.__dict__.keys())
+                'banned_str': banned_str,
+                'banned_regex': banned_regex
             }
         }
         self._no_compress = no_compress
+
+        # Now apply the initial passes
+        self._root = self.apply_passes(self._root, self._initial_passes)
 
     def apply_passes(self, code, passes):
         """
@@ -78,7 +103,7 @@ class ThreadSnake:
         """
         curr = parse(code)
         curr = self.apply_passes(curr, self._perfile_passes)
-        self._root += curr.body
+        self._root.body += curr.body
 
         if module_name is not None:
             self._cfg['RemoveImports']['remove'].append(module_name)
@@ -87,8 +112,7 @@ class ThreadSnake:
         """
         Run the code over the collective AST
         """
-        curr = Module()
-        curr.body = self._root
+        curr = self._root
         curr = self.apply_passes(curr, self._passes)
 
         self._root = curr
@@ -97,7 +121,7 @@ class ThreadSnake:
         """
         Get a minified string representation of the program.
         """
-        file = ts_unparse(self._root.body)
+        file = unparse(self._root.body)
         if self._no_compress:
             return file
         return compress_pack(file)

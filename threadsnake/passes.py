@@ -1,6 +1,7 @@
 """
 Passes we run over the AST
 """
+import copy
 from ast import \
         FunctionDef, \
         ClassDef, \
@@ -16,8 +17,11 @@ from ast import \
         Expr, \
         walk, \
         alias, \
-        unparse
-import copy
+        unparse, \
+        parse, \
+        dump
+from _ast import Attribute, Call, BinOp
+import re
 from remapnames import SymbolMapper
 
 
@@ -267,9 +271,9 @@ class UpdateSymbols(NodeTransformer):
 
     def visit_Attribute(self, node):
         new_syms = self._new_syms
-        for name in unparse(node).split('.'):
-            if name in self._modules:
-                return node
+        name = unparse(node).split('.')[0]
+        if name in self._modules:
+            return node
 
         if node.attr in new_syms:
             node.attr = new_syms[node.attr]
@@ -280,9 +284,9 @@ class UpdateSymbols(NodeTransformer):
         if node.name in new_syms:
             node.name = new_syms[node.name]
         for arg in node.args.args:
-            arg.arg = new_syms[arg.arg]
+            arg.arg = new_syms.get(arg.arg, arg.arg)
         for arg in node.args.kwonlyargs:
-            arg.arg = new_syms[arg.arg]
+            arg.arg = new_syms.get(arg.arg, arg.arg)
         if node.args.kwarg:
             node.args.kwarg.arg = new_syms[node.args.kwarg.arg]
         return self.generic_visit(node)
@@ -311,33 +315,192 @@ class UpdateSymbols(NodeTransformer):
             node.names[idx] = new_syms[name]
         return self.generic_visit(node)
 
+    def visit_Call(self, node):
+        return self.generic_visit(node)
+
+
+class SymbolFilter:
+    """
+    Filter out symbols we don't want to rename.
+    """
+
+    def __init__(self, banned_str, banned_regex=[]):
+        self._banned_str = banned_str
+        self._banned_regex = list(map(re.compile, banned_regex))
+
+    def is_banned(self, symbol_name):
+        if symbol_name in self._banned_str:
+            return True
+        # check against regex
+        for regex in self._banned_regex:
+            if regex.fullmatch(symbol_name):
+                return True
+        return False
+
+    def filter(self, symbols):
+        res = {}
+        for symbol, count in symbols.items():
+            if not self.is_banned(symbol):
+                res[symbol] = count
+        return res
+
+
+# Function we add into the code.
+ATTRIBUTE_LOOK_STR = """
+def attribute_lookup(cls, symbol):
+    syms = getattr(symbol, 'split')('.', 1)
+    rest = [''] if len(syms) == 1 else syms[1]
+    r = getattr(cls, syms[0] if hasattr(cls, syms[0]) else remap[syms[0]])
+    return r if len(rest) == 1 else attribute_lookup(r, rest)
+
+def attribute_set(cls, symbol, value):
+    curr = getattr(symbol, 'split')('.', 1)[0]
+    setattr(cls, curr if hasattr(cls, curr) else remap[curr], value)
+"""
+
+
+class InsertHelpers(ASTPass):
+    """
+    Add in functions to use as helpers.
+    """
+
+    to_add = [ATTRIBUTE_LOOK_STR]
+
+    def apply(self, curr_ast):
+        new_ast = copy.deepcopy(curr_ast)
+        to_add = list(map(parse, self.to_add))
+        res = []
+        for module in to_add:
+            res += module.body
+        new_ast.body = res + new_ast.body
+        return new_ast
+
+
+class WrapAttributes(NodeTransformer):
+    """
+    Wrapping the attribute access with the `attribute_lookup` function.
+    """
+
+    def __init__(self, name, banned):
+        self._attribute_get, self._attribute_set = name
+        self._banned = banned
+
+    def visit_Assign(self, node):
+        # we need to split out calls in the targets
+        found_attr = False
+        for target in node.targets:
+            if isinstance(target, Attribute):
+                found_attr = True
+
+        if not found_attr:
+            return self.generic_visit(node)
+
+        values = [self.visit(node.value)]
+        res = []
+
+        for target in node.targets:
+            base = node.targets[0]
+            res.append(Expr(Call(
+                func=Name(self._attribute_set),
+                args=(
+                    self.visit(base.value),
+                    Constant(base.attr),
+                    values[0]
+                ),
+                keywords={}
+            )))
+
+        return res
+
+    def visit_AugAssign(self, node):
+        # we need to split out calls in the targets
+        found_attr = False
+        if isinstance(node.target, Attribute):
+            found_attr = True
+
+        if not found_attr:
+            return self.generic_visit(node)
+
+        value = node.value
+        base = node.target
+        left_value = self.visit(base)
+        new_value = BinOp(op=node.op, left=left_value, right=value)
+        return Expr(Call(
+            func=Name(self._attribute_set),
+            args=(
+                self.visit(base.value),
+                Constant(base.attr),
+                new_value
+            ),
+            keywords={}
+        ))
+
+    def visit_Attribute(self, node):
+        # we are trying to merge attributes together
+        curr = node.value
+        attr = [node.attr]
+        if node.attr in self._banned:
+            return self.generic_visit(node)
+        while isinstance(curr, Attribute):
+            attr.append(curr.attr)
+            curr = curr.value
+        return Call(
+            func=Name(self._attribute_get),
+            args=(
+                self.visit(curr),
+                Constant('.'.join(attr[::-1]))
+            ),
+            keywords={}
+        )
+
 
 class RenameVariables(ASTPass):
     def apply(self, curr_ast):
         sm = SymbolMapper()
-        # need external symbols to be kept the same.
-        banned = self._cfg.get('banned', [])
+
         fis = FindImportedSymbols()
         fis.visit(curr_ast)
         modules = fis.symbols()
         sm.add_to_keywords(fis.symbols())
-        banned += modules
 
         fs = FindSymbols()
         fs.visit(curr_ast)
         new_syms = fs.counts()
 
-        for sym in new_syms.keys():
-            if sym[:2] == '__' and sym[-2:] == '__':
-                banned.append(sym)
+        # need external symbols to be kept the same.
+        banned_str = self._cfg.get('banned_str', [])
+        banned_str += modules
+        banned_regex = self._cfg.get('banned_regex', [])
+        # catch things like __name__
+        banned_regex.append('^__[a-zA-Z0-9]+__$')
 
-        for ban in banned:
-            if ban in new_syms:
-                del new_syms[ban]
-
+        sf = SymbolFilter(banned_str, banned_regex=banned_regex)
+        new_syms = sf.filter(new_syms)
         new_syms = sm.map_symbols(new_syms)
 
-        # Apply the modifications to normal uses
+        # filter new_syms done so we don't bother replacing symbols that get
+        # used once, or have no need to go through the attribute_lookup
+        # function
+
+        dont_care = ['attribute_lookup', 'attribute_set', 'remap']
+        new_syms_flip = {
+            value: key
+            for key, value in filter(
+                lambda x: x[0] not in dont_care, new_syms.items()
+            )
+        }
+
+        # define remap. will already be in the list of symbols, so the rewrite
+        # will catch this
+        curr_ast.body = [parse(f'remap = {new_syms_flip}')] + curr_ast.body
+
+        # Update symbol names
         new_ast = UpdateSymbols(new_syms, modules).visit(curr_ast)
-        # Update class names
+
+        # Now replace attribute accesses with calls to `attribute_lookup()`
+        new_ast = WrapAttributes(
+            (new_syms['attribute_lookup'], new_syms['attribute_set']),
+            banned_str
+        ).visit(new_ast)
+
         return new_ast
